@@ -1,12 +1,13 @@
 const std = @import("std");
 const builtin = @import("builtin");
+// `dependencies` field can't be represented https://github.com/ziglang/zig/issues/22775
 const build_zon: struct {
     name: @Type(.enum_literal),
     version: []const u8,
     fingerprint: u64,
     minimum_zig_version: []const u8,
     dependencies: struct {},
-    paths: struct { []const u8 },
+    paths: []const []const u8,
 } = @import("build.zig.zon");
 
 comptime {
@@ -21,6 +22,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
     const lib = b.addLibrary(.{
