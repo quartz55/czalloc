@@ -1,0 +1,11 @@
+CompileFlags:
+  Add: [-xc]
+Diagnostics:
+  ClangTidy:
+    Add: ['*']
+    Remove: [altera-*, llvmlibc-restrict-system-libc-headers, misc-no-recursion]
+    FastCheckFilter: None # Run checks regardless of their speed
+InlayHints:
+  BlockEnd: Yes
+  DefaultArguments: Yes
+  TypeNameLimit: 0 # No typename limit
