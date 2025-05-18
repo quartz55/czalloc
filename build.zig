@@ -11,7 +11,8 @@ const build_zon: struct {
 } = @import("build.zig.zon");
 const test_cases = @import("test/cases.zig");
 
-const CompileFlags = std.BoundedArray([]const u8, 64);
+const COMPILE_FLAGS_MAX_LEN = 32;
+const CompileFlags = std.BoundedArray([]const u8, COMPILE_FLAGS_MAX_LEN);
 
 comptime {
     checkVersion();
