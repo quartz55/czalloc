@@ -4,9 +4,12 @@
 extern void checkLeaks();
 
 int main() {
-  int *arr = malloc(100 * sizeof(int)); // Uses Zig allocator
+  auto size = 100U;
+  int *arr = malloc(size * sizeof(int)); // Uses Zig allocator
   if (!arr) {
-    fprintf(stderr, "Allocation failed!\n");
+    if (fprintf(stderr, "Allocation failed!\n") < 0) {
+      perror("fprintf failed");
+    }
     return 1;
   }
   arr[0] = 42;
@@ -16,7 +19,7 @@ int main() {
   free(new_arr); // Correctly freed via Zig's allocator
 
   void *ptr;
-  const auto alignment = 64;
+  auto const alignment = 64U;
   // Allocate 64B-aligned memory for AVX-512
   if (posix_memalign(&ptr, alignment, 1024) != 0) {
     perror("posix_memalign failed");
