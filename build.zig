@@ -9,6 +9,8 @@ const build_zon: struct {
     dependencies: struct {},
     paths: []const []const u8,
 } = @import("build.zig.zon");
+
+const create = @import("build/create.zig");
 const test_cases = @import("test/cases.zig");
 
 const COMPILE_FLAGS_MAX_LEN = 32;
@@ -29,25 +31,19 @@ pub fn build(b: *std.Build) !void {
     const use_lld = b.option(bool, "lld", "Use the llvm's lld linker") orelse false;
     const linkage = b.option(std.builtin.LinkMode, "linkage", "Choose linkage of czalloc") orelse .static;
 
-    const lib_mod = b.createModule(.{
-        .root_source_file = b.path("src/root.zig"),
+    const test_step = b.step("test", "Run unit tests");
+
+    const lib_options: create.LibOptions = .{
+        .strip = strip,
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
-        .sanitize_c = .full,
-        .stack_check = true,
-        .strip = strip,
-    });
-
-    const lib = b.addLibrary(.{
-        .name = "czalloc",
         .linkage = linkage,
-        .root_module = lib_mod,
+        .want_lto = want_lto,
         .use_lld = use_lld,
         .use_llvm = use_llvm,
-    });
-    lib.pie = use_llvm;
-    lib.want_lto = want_lto;
+        .pie = use_llvm,
+    };
+    const lib_mod, const lib = create.lib(b, lib_options);
 
     if (no_bin) {
         const czalloc = lib.getEmittedBin();
@@ -64,22 +60,19 @@ pub fn build(b: *std.Build) !void {
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
-    const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
 
     var compile_flags_buf = CompileFlags.init(0) catch @panic("Buffer Overflow");
     const cflags = loadCompileFlags("compile_flags.txt", &compile_flags_buf);
 
     try test_cases.addCase(b, test_step, .{
-        .target = target,
-        .czalloc_lib = lib,
+        .lib_options = lib_options,
         .cflags = cflags,
-        .optimize_mode = &.{ .Debug, .ReleaseFast },
-        .use_lld = use_lld,
-        .use_llvm = use_llvm,
-        .pie = use_llvm,
-        .want_lto = want_lto,
-        .strip = strip,
+        .optimization_modes = &.{
+            .Debug,
+            .ReleaseFast,
+            .ReleaseSmall,
+        },
     });
 }
 

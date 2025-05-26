@@ -1,15 +1,10 @@
 const std = @import("std");
+const create = @import("../build/create.zig");
 
 pub const CaseOptions = struct {
-    target: std.Build.ResolvedTarget,
-    optimize_mode: []const std.builtin.OptimizeMode,
+    optimization_modes: []const std.builtin.OptimizeMode,
     cflags: []const []const u8,
-    czalloc_lib: *std.Build.Step.Compile,
-    use_lld: bool,
-    use_llvm: bool,
-    pie: bool,
-    want_lto: bool,
-    strip: bool,
+    lib_options: create.LibOptions,
 };
 
 pub fn addCase(
@@ -17,6 +12,25 @@ pub fn addCase(
     tests_step: *std.Build.Step,
     options: CaseOptions,
 ) !void {
+    const lib_options = options.lib_options;
+    const czalloc_libs = blk: {
+        var libs: [4]*std.Build.Step.Compile = undefined;
+        for (options.optimization_modes, 0..) |mode, index| {
+            _, const lib = create.lib(b, .{
+                .optimize = mode,
+                .strip = lib_options.strip,
+                .target = lib_options.target,
+                .linkage = lib_options.linkage,
+                .want_lto = lib_options.want_lto,
+                .use_lld = lib_options.use_lld,
+                .use_llvm = lib_options.use_llvm,
+                .pie = lib_options.use_llvm,
+            });
+            libs[index] = lib;
+        }
+        break :blk libs[0..options.optimization_modes.len];
+    };
+
     const run_step = b.step("run-cases", "Run the test cases");
     tests_step.dependOn(run_step);
 
@@ -37,29 +51,29 @@ pub fn addCase(
         const write_src = b.addWriteFiles();
         const file_source = write_src.add("tmp.c", src_input);
 
-        for (options.optimize_mode) |optimize| {
+        for (options.optimization_modes, 0..) |mode, index| {
             const annotated_case_name = b.fmt(
                 "run-{s}-{s}",
-                .{ entry.basename, @tagName(optimize) },
+                .{ entry.basename, @tagName(mode) },
             );
 
             const c_module = b.createModule(.{
-                .target = options.target,
-                .optimize = optimize,
-                .strip = options.strip,
+                .target = lib_options.target,
+                .optimize = mode,
+                .strip = lib_options.strip,
                 .link_libc = true,
                 .sanitize_c = .full,
                 .stack_check = true,
                 .stack_protector = true,
             });
-            c_module.linkLibrary(options.czalloc_lib);
+            c_module.linkLibrary(czalloc_libs[index]);
             c_module.addCSourceFile(.{
                 .file = file_source,
                 .flags = options.cflags,
                 .language = .c,
             });
-            if (options.target.result.isGnuLibC()) {
-                switch (optimize) {
+            if (lib_options.target.result.isGnuLibC()) {
+                switch (mode) {
                     .Debug => {},
                     else => {
                         c_module.addCMacro("_FORTIFY_SOURCE", "3");
@@ -69,13 +83,13 @@ pub fn addCase(
 
             const c_exe = b.addExecutable(.{
                 .name = annotated_case_name,
-                .optimize = optimize,
+                .optimize = mode,
                 .root_module = c_module,
-                .use_lld = options.use_lld,
-                .use_llvm = options.use_llvm,
+                .use_lld = lib_options.use_lld,
+                .use_llvm = lib_options.use_llvm,
             });
-            c_exe.pie = options.pie;
-            c_exe.want_lto = options.want_lto;
+            c_exe.pie = lib_options.pie;
+            c_exe.want_lto = lib_options.want_lto;
             c_exe.step.name = b.fmt("{s} test", .{annotated_case_name});
 
             const run_exe = b.addRunArtifact(c_exe);
