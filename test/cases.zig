@@ -51,7 +51,7 @@ pub fn addCase(
         const write_src = b.addWriteFiles();
         const file_source = write_src.add("tmp.c", src_input);
 
-        for (options.optimization_modes, 0..) |mode, index| {
+        for (options.optimization_modes, czalloc_libs) |mode, lib| {
             const annotated_case_name = b.fmt(
                 "run-{s}-{s}",
                 .{ entry.basename, @tagName(mode) },
@@ -66,7 +66,7 @@ pub fn addCase(
                 .stack_check = true,
                 .stack_protector = true,
             });
-            c_module.linkLibrary(czalloc_libs[index]);
+            c_module.linkLibrary(lib);
             c_module.addCSourceFile(.{
                 .file = file_source,
                 .flags = options.cflags,
