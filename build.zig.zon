@@ -2,7 +2,7 @@
     .name = .czalloc,
     .version = "0.1.0",
     .fingerprint = 0x2f3ac4290ea41040, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.15.0-dev.558+9279ff888",
+    .minimum_zig_version = "0.14.1",
     .dependencies = .{},
     .paths = .{
         "compile_flags.txt",
